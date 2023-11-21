@@ -1,25 +1,17 @@
-﻿using System.Collections.ObjectModel;
+﻿#pragma warning disable CA1416
+
 using System.Net.Sockets;
 using System.Speech.Synthesis;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace YudolePlatformTTSServer;
 
-public class Message
-{
-    [JsonPropertyName("id")] public string? Id { get; set; }
-    [JsonPropertyName("type")] public string? Type { get; set; }
-    [JsonPropertyName("service")] public string? Service { get; set; }
-    [JsonPropertyName("html")] public string? Html { get; set; }
-    [JsonPropertyName("text")] public string? Text { get; set; }
-}
 
 internal class Program
 {
-    private static SpeechSynthesizer synth = new();
-    private static ReadOnlyCollection<InstalledVoice> voices = synth.GetInstalledVoices();
-    private static Thread speakerThread = new Thread(Speaker); 
+    private static readonly SpeechSynthesizer synth = new();
+    private static string? voiceSelected;
+    private static readonly Thread speakerThread = new(Speaker);
     private static readonly Queue<string> msgQueue = new();
 
     private static void Log(string message, ConsoleColor color = ConsoleColor.White)
@@ -43,10 +35,42 @@ internal class Program
             }
     }
 
-    private static void Main(string[] args)
+    private static int Main(string[] args)
     {
-        synth.SelectVoice("IVONA 2 Maxim OEM");
+        voiceSelected = "IVONA 2 Maxim OEM ";
         speakerThread.Start();
+
+        Log("Available voices:");
+        var voices = synth.GetInstalledVoices();
+
+
+        for (var i = 0; i < voices.Count; i++)
+        {
+            if (!voices[i].Enabled) continue;
+
+            Console.Write("{0}. ", i + 1);
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write(voices[i].VoiceInfo.Name);
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.WriteLine(" [{0}]", voices[i].VoiceInfo.Culture.DisplayName);
+            Console.ResetColor();
+        }
+
+        Console.Write("You select voice: \"");
+        Console.ForegroundColor = ConsoleColor.DarkCyan;
+        Console.Write(voiceSelected);
+        Console.ResetColor();
+        Console.WriteLine("\"");
+        
+        try
+        {
+            synth.SelectVoice(voiceSelected);
+        }
+        catch (Exception e)
+        {
+            Log(e.Message, ConsoleColor.Red);
+            return -1;
+        }
 
         for (;;)
         {
@@ -94,35 +118,3 @@ internal class Program
         }
     }
 }
-
-
-
-// Console.WriteLine("Available voices:");
-// for (var i = 0; i < voices.Count; i++)
-// {
-//     if (!voices[i].Enabled) continue;
-//
-//     Console.Write(i + 1);
-//     Console.Write(". ");
-//     Console.ForegroundColor = ConsoleColor.Yellow;
-//     Console.Write(voices[i].VoiceInfo.Name);
-//     Console.ForegroundColor = ConsoleColor.Green;
-//     Console.Write(" [");
-//     Console.Write(voices[i].VoiceInfo.Culture.DisplayName);
-//     Console.WriteLine("]");
-//     Console.ResetColor();
-// }
-//
-// try
-// {
-//     synth.SelectVoice("IVONA 2 Maxim OEM");
-// }
-// catch (Exception e)
-// {
-//     Console.ForegroundColor = ConsoleColor.Red;
-//     Console.WriteLine(e.Message);
-//     Console.ResetColor();
-// }
-//
-// synth.Speak("Hello world from speech server");
-// // Console.ReadKey();
