@@ -6,13 +6,12 @@ using System.Text.Json;
 
 namespace YudolePlatformTTSServer;
 
-
 internal class Program
 {
     private static readonly SpeechSynthesizer synth = new();
     private static string? voiceSelected;
     private static readonly Thread speakerThread = new(Speaker);
-    private static readonly Queue<string> msgQueue = new();
+    private static readonly Queue<Message> msgQueue = new();
 
     private static void Log(string message, ConsoleColor color = ConsoleColor.White)
     {
@@ -27,7 +26,7 @@ internal class Program
             if (msgQueue.Count > 0)
             {
                 var message = msgQueue.Dequeue();
-                synth.Speak(message);
+                synth.Speak(message.Text);
             }
             else
             {
@@ -37,7 +36,7 @@ internal class Program
 
     private static int Main(string[] args)
     {
-        voiceSelected = "IVONA 2 Maxim OEM ";
+        voiceSelected = "IVONA 2 Maxim OEM";
         speakerThread.Start();
 
         Log("Available voices:");
@@ -61,7 +60,7 @@ internal class Program
         Console.Write(voiceSelected);
         Console.ResetColor();
         Console.WriteLine("\"");
-        
+
         try
         {
             synth.SelectVoice(voiceSelected);
@@ -89,7 +88,6 @@ internal class Program
                     try
                     {
                         var message = reader.ReadLine();
-                        Console.WriteLine(message);
 
                         if (message == null)
                         {
@@ -97,9 +95,40 @@ internal class Program
                             break;
                         }
 
-                        var msg = JsonSerializer.Deserialize<Message>(message);
-                        Log(msg.Text, ConsoleColor.DarkYellow);
-                        msgQueue.Enqueue(msg.Text);
+                        Message? msg;
+                        try
+                        {
+                            msg = JsonSerializer.Deserialize<Message>(message);
+                        }
+                        catch (Exception e)
+                        {
+                            Log("Error while encoding JSON message: " + e.Message, ConsoleColor.Red);
+                            continue;
+                        }
+
+                        switch (msg.Type)
+                        {
+                            case "message/speak":
+                                msgQueue.Enqueue(msg);
+
+                                Console.ForegroundColor = ConsoleColor.DarkGreen;
+                                Console.Write("Speaking: \"");
+                                Console.ResetColor();
+                                Console.ForegroundColor = ConsoleColor.White;
+                                Console.Write(msg.Text);
+                                Console.ResetColor();
+                                Console.ForegroundColor = ConsoleColor.DarkGreen;
+                                Console.WriteLine("\"");
+                                Console.ResetColor();
+                                break;
+
+                            default:
+                                Log("Unknown message type: " + msg.Type, ConsoleColor.Red);
+                                break;
+                        }
+
+                        {
+                        }
                     }
                     catch (Exception e)
                     {
